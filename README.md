@@ -15,7 +15,6 @@ This project pushes me to work across the full stack with technologies I'll actu
 
 Each phase is built incrementally so I can understand every layer before adding the next one.
 
-<div align="center">
 ## Tech Stack
 
 | Layer | Technology |
@@ -26,8 +25,6 @@ Each phase is built incrementally so I can understand every layer before adding 
 | **Storage** | AWS S3 (metrics archiving) |
 | **Alerts** | AWS Lambda + SNS |
 | **Monitoring** | AWS CloudWatch |
-
-</div>
 
 ## Project Roadmap
 
