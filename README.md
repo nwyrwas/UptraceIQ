@@ -15,6 +15,7 @@ This project pushes me to work across the full stack with technologies I'll actu
 
 Each phase is built incrementally so I can understand every layer before adding the next one.
 
+<div align="center">
 ## Tech Stack
 
 | Layer | Technology |
@@ -25,6 +26,8 @@ Each phase is built incrementally so I can understand every layer before adding 
 | **Storage** | AWS S3 (metrics archiving) |
 | **Alerts** | AWS Lambda + SNS |
 | **Monitoring** | AWS CloudWatch |
+
+</div>
 
 ## Project Roadmap
 
@@ -50,11 +53,14 @@ The React dashboard displays uptime percentages, response time charts, incident 
 ### Phase 1 — Project Setup
 Initialized the Spring Boot 3 project with Maven. Configured dependencies: Spring Web (REST API), Spring Data JPA (database abstraction), PostgreSQL Driver (for future AWS RDS connection), and Spring Boot Actuator (application health monitoring). Added H2 as an in-memory development database so the app runs locally without a real PostgreSQL instance.
 
-![H2 Console](docs/screenshots/phase-1/h2-console.jpg)
-*H2 in-memory database console — used for local development before connecting to AWS RDS PostgreSQL.*
+![RDS Instance](docs/screenshots/phase-3/rds-instance.jpg)
+*AWS RDS PostgreSQL instance running in us-east-1 — the production database for all health check data.*
 
-![Actuator Health](docs/screenshots/phase-1/actuator-health.jpg)
-*Spring Boot Actuator health endpoint — returns service status. AWS load balancers will use this to verify our backend is alive.*
+![RDS Health Checks](docs/screenshots/phase-3/rds-health-checks.jpg)
+*Health check results being written to RDS PostgreSQL in real time — three endpoints checked in parallel every 30 seconds.*
+
+![RDS Persistence](docs/screenshots/phase-3/rds-persistence.jpg)
+*Health check results persisted in RDS PostgreSQL — data survives app restarts, unlike the H2 in-memory database.*
 
 ---
 
