@@ -32,7 +32,7 @@ Each phase is built incrementally so I can understand every layer before adding 
 |-------|-------|-------------|--------|
 | 1 | Project Setup | Spring Boot 3, Maven, H2 dev database, Actuator health endpoint | ✅ |
 | 2 | Health Check Model & Engine | JPA entities, repositories, `CompletableFuture` parallel health checks | ✅ |
-| 3 | RDS Metrics & Persistence | Connect to AWS RDS PostgreSQL, migrate off H2 for production data | |
+| 3 | RDS Metrics & Persistence | Connect to AWS RDS PostgreSQL, migrate off H2 for production data | ✅ |
 | 4 | S3 Metrics Archiving | Archive older metrics to S3, keep RDS lean | |
 | 5 | Lambda Alerts & SNS | AWS Lambda processes metric batches, SNS sends notifications on incidents | |
 | 6 | REST API | Spring Boot endpoints for the React dashboard to consume | |
@@ -72,7 +72,16 @@ Built the core data model and monitoring engine:
 ![Health Checks Live](docs/screenshots/phase-2/health-checks-live.jpg)
 *Health checks running live — Google (301 redirect), GitHub (200 UP), and a fake endpoint (DOWN). All three checked in parallel via CompletableFuture.*
 
+---
 
+### Phase 3 — RDS Metrics & Persistence
+Connected the backend to AWS RDS PostgreSQL for persistent data storage. Set up Spring profiles to support dual environments — H2 for local development and RDS for production. Database credentials are stored securely using environment variables (`${RDS_PASSWORD}`) instead of hardcoded values. Health check results now survive application restarts, proving the monitoring data is durable.
+
+![RDS Instance](docs/screenshots/phase-3/rds-instance.jpg)
+*AWS RDS PostgreSQL instance running in us-east-1 — the production database for all health check data.*
+
+![RDS Persistence](docs/screenshots/phase-3/rds-persistence.jpg)
+*Health check results persisted in RDS PostgreSQL — data survives app restarts, unlike the H2 in-memory database.*
 
 
 
@@ -82,7 +91,16 @@ Built the core data model and monitoring engine:
 - Java 17+
 - Maven 3.9+
 
-### Backend
+### Backend (Local - H2)
 ```bash
 cd backend
 ./mvnw spring-boot:run
+```
+
+### Backend (RDS — AWS PostgreSQL)
+```bash
+cd backend
+export RDS_PASSWORD=your_rds_password
+./mvnw spring-boot:run -Dspring-boot.run.profiles=rds
+```
+
