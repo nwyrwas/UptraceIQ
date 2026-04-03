@@ -33,7 +33,7 @@ Each phase is built incrementally so I can understand every layer before adding 
 | 1 | Project Setup | Spring Boot 3, Maven, H2 dev database, Actuator health endpoint | ✅ |
 | 2 | Health Check Model & Engine | JPA entities, repositories, `CompletableFuture` parallel health checks | ✅ |
 | 3 | RDS Metrics & Persistence | Connect to AWS RDS PostgreSQL, migrate off H2 for production data | ✅ |
-| 4 | S3 Metrics Archiving | Archive older metrics to S3, keep RDS lean | |
+| 4 | S3 Metrics Archiving | Archive older metrics to S3, keep RDS lean | ✅ |
 | 5 | Lambda Alerts & SNS | AWS Lambda processes metric batches, SNS sends notifications on incidents | |
 | 6 | REST API | Spring Boot endpoints for the React dashboard to consume | |
 | 7 | React Dashboard | Uptime charts, response time graphs, incident feed, live status badges | |
@@ -85,6 +85,21 @@ Connected the backend to AWS RDS PostgreSQL for persistent data storage. Set up 
 
 ![RDS Persistence](docs/screenshots/phase-3/rds-persistence.jpg)
 *Health check results persisted in RDS PostgreSQL — data survives app restarts, unlike the H2 in-memory database.*
+
+---
+
+### Phase 4 — S3 Metrics Archiving
+Built an automated archiving system that moves health check data older than 7 days from RDS to S3. The archiver runs on a daily schedule — queries old records, serializes them to JSON, uploads to S3 with a date-stamped filename, then deletes the originals from RDS. This keeps the database lean while preserving all historical data in cheap cloud storage. AWS credentials are handled through environment variables, same pattern as the RDS password.
+
+![S3 Bucket](docs/screenshots/phase-4/s3-bucket.jpg)
+*S3 bucket created in us-east-1 — stores archived health check metrics as JSON files.*
+
+![S3 Archive](docs/screenshots/phase-4/s3-archive-succes.jpg)
+*Archived JSON file stored in S3 — 18 health check records exported as `archives/2026-04-02.json`.*
+
+![Terminal Archive](docs/screenshots/phase-4/terminal-s3-archive.jpg)
+*Archiver queried old records from RDS, uploaded to S3, then deleted them from the database to keep it lean.*
+
 
 
 ## Running Locally

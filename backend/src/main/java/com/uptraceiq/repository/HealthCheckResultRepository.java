@@ -1,9 +1,10 @@
 package com.uptraceiq.repository;
 
-import com.uptraceiq.model.HealthCheckResult;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
+import com.uptraceiq.model.HealthCheckResult;
 
 // Same pattern as EndpointRepository — Spring auto-implements the interface.
 public interface HealthCheckResultRepository extends JpaRepository<HealthCheckResult, Long> {
@@ -13,4 +14,7 @@ public interface HealthCheckResultRepository extends JpaRepository<HealthCheckRe
     // Gets all results for one endpoint, newest first. Used for the dashboard timeline.
     List<HealthCheckResult> findByEndpointIdOrderByCheckedAtDesc(Long endpointId);
 
+    // Finds all health check results recorded before a given timestamp.
+    // Used by the archiver to grab anything older than 7 days for S3 export.
+    List<HealthCheckResult> findByCheckedAtBefore(java.time.LocalDateTime cutoff);
 }
