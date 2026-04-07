@@ -28,14 +28,17 @@ public class HealthCheckService {
     private final EndpointRepository endpointRepository;
     private final HealthCheckResultRepository resultRepository;
     private final HttpClient httpClient;
+    private final AlertService alertService;
 
     // Spring injects the repositories automatically (dependency injection).
     // HttpClient is reusable and thread-safe — we only need one instance.
     public HealthCheckService(EndpointRepository endpointRepository,
-                              HealthCheckResultRepository resultRepository) {
+                              HealthCheckResultRepository resultRepository,
+                              AlertService alertService) {
 
             this.endpointRepository = endpointRepository;
             this.resultRepository = resultRepository;
+            this.alertService = alertService;
             this.httpClient = HttpClient.newBuilder()
                                 .connectTimeout(Duration.ofSeconds(10))
                                 .build();
@@ -94,7 +97,7 @@ public class HealthCheckService {
             result.setErrorMessage(e.getMessage());
 
         }
-
+        alertService.checkAndAlert(endpoint, result.getStatus());
         resultRepository.save(result);
     }
 

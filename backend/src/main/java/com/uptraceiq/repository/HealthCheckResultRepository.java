@@ -17,4 +17,6 @@ public interface HealthCheckResultRepository extends JpaRepository<HealthCheckRe
     // Finds all health check results recorded before a given timestamp.
     // Used by the archiver to grab anything older than 7 days for S3 export.
     List<HealthCheckResult> findByCheckedAtBefore(java.time.LocalDateTime cutoff);
+
+    java.util.Optional<HealthCheckResult> findTopByEndpointIdOrderByCheckedAtDesc(Long endpointId);
 }
