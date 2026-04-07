@@ -118,9 +118,11 @@ Built the core data model and monitoring engine that pings endpoints in parallel
 - **HealthCheckService** — uses `CompletableFuture.runAsync()` for parallel execution, `CompletableFuture.allOf().join()` to wait for completion. Java's equivalent of `Promise.all()`.
 
 > **Challenge:** Checking 3 endpoints sequentially took 6+ seconds (2s each). With 100 endpoints, this would take over 3 minutes per check cycle.
+
 > **Solution:** `CompletableFuture.runAsync()` runs each check on its own thread. All endpoints are checked simultaneously — total time equals the slowest single check, not the sum.
 
 > **Challenge:** Needed a way to represent the relationship between endpoints and their check results without writing raw SQL joins.
+
 > **Solution:** JPA's `@ManyToOne` annotation with `@JoinColumn` creates the foreign key automatically. Spring Data's query derivation generates SQL from method names — no manual queries needed.
 
 ![H2 Tables](docs/screenshots/phase-2/h2-tables-created.jpg)
@@ -142,9 +144,11 @@ Connected the backend to AWS RDS PostgreSQL for persistent data storage. Set up 
 - **Security groups** act as a network firewall in front of RDS. Without the inbound rule on port 5432, connections are rejected before the password is even checked.
 
 > **Challenge:** `data.sql` seed data ran automatically on H2 but was silently ignored on RDS, leaving the endpoints table empty. Health checks ran but found nothing to check.
+
 > **Solution:** Spring Boot only auto-runs `data.sql` for embedded databases. PostgreSQL is external, so Spring skips it by design — prevents re-inserting data on every production restart. Seeded RDS manually via `psql`.
 
 > **Challenge:** Needed to keep H2 for fast local development while also supporting RDS for production data — without maintaining two separate codebases or configurations.
+
 > **Solution:** Spring profiles load different properties files based on the active profile. The same Java code connects to H2 or PostgreSQL depending on a single runtime flag. No `if` statements, no environment checks in code.
 
 ![RDS Instance](docs/screenshots/phase-3/rds-instance.jpg)
@@ -169,9 +173,11 @@ Built an automated archiving system that moves health check data older than 7 da
 - **Date-stamped keys** (`archives/2026-04-02.json`) give each archive a unique path. S3 is a flat key-value store — slashes in keys render as folders in the console.
 
 > **Challenge:** Health checks write 8,640 rows/day to RDS (3 endpoints x 30s intervals). After a few months, queries slow down and storage costs climb on PostgreSQL ($0.115/GB/month).
+
 > **Solution:** Archive anything older than 7 days to S3 ($0.023/GB/month, first 5GB free). Daily archives are ~3KB each — a full year costs fractions of a penny. RDS stays fast with only recent data.
 
 > **Challenge:** Serializing JPA entities directly with Jackson caused cascading relationship loading — `@ManyToOne` pulled in the full Endpoint object for every result.
+
 > **Solution:** Manually mapped each `HealthCheckResult` to a `HashMap<String, Object>` with only the fields needed. Full control over the JSON output, no accidental relationship traversal.
 
 ![S3 Bucket](docs/screenshots/phase-4/s3-bucket.jpg)
@@ -197,12 +203,15 @@ Added real-time email alerting when endpoints go down or recover. Spring Boot de
 - **IAM role** grants the Lambda function `sns:Publish` permission — without it, Lambda can execute but can't send notifications.
 
 > **Challenge:** Health checks run every 30 seconds. A DOWN endpoint generates a new DOWN result every cycle — naive alerting would send an email every 30 seconds for the same outage.
+
 > **Solution:** AlertService queries the previous result with `findTopByEndpointIdOrderByCheckedAtDesc()` and compares statuses. Only transitions trigger alerts. An endpoint that's been DOWN for an hour sends exactly one alert — when it first went down — and one recovery email when it comes back.
 
 > **Challenge:** The alert check runs after `resultRepository.save()`, so querying the "previous" result returned the one we just saved — making previous status always equal current status, and alerts never fired.
+
 > **Solution:** Moved `alertService.checkAndAlert()` to run BEFORE `resultRepository.save()`. Now the "most recent" query returns the actual previous result, and status transitions are detected correctly.
 
 > **Challenge:** Lambda's default execution role only includes CloudWatch Logs permissions. The function ran successfully but `sns.publish()` threw an access denied error.
+
 > **Solution:** Attached the `AmazonSNSFullAccess` policy to Lambda's execution role via IAM. In production, you'd scope this down to only `sns:Publish` on the specific topic ARN.
 
 ![SNS Topic](docs/screenshots/phase-5/sns-topic.jpg)
