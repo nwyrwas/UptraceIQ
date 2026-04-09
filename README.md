@@ -37,7 +37,7 @@ Each phase is built incrementally so I can understand every layer before adding 
 | 3 | RDS Metrics & Persistence | Connect to AWS RDS PostgreSQL, migrate off H2 for production data | ✅ |
 | 4 | S3 Metrics Archiving | Archive older metrics to S3, keep RDS lean | ✅ |
 | 5 | Lambda Alerts & SNS | AWS Lambda formats alerts, SNS sends email notifications on incidents | ✅ |
-| 6 | REST API | Spring Boot endpoints for the React dashboard to consume | |
+| 6 | REST API | Spring Boot endpoints for the React dashboard to consume | ✅ |
 | 7 | React Dashboard | Uptime charts, response time graphs, incident feed, live status badges | |
 | 8 | Alert Thresholds | Configurable response time and failure thresholds per endpoint | |
 
@@ -84,6 +84,22 @@ Each phase is built incrementally so I can understand every layer before adding 
                                          | (archives/         |
                                          |  2026-04-02.json)  |
                                          +-------------------+
+
+  +-------------------+   HTTP/JSON     +-----------------------+
+  |  React Dashboard  | <------------>  |   Spring REST API     |
+  |   (Phase 7)       |    CORS-enabled |  EndpointController   |
+  |  localhost:3000   |                 |  HealthCheckResult    |
+  +-------------------+                 |     Controller        |
+                                        | (DTOs + Mappers +     |
+                                        |  ResponseEntity)      |
+                                        +-----------+-----------+
+                                                    |
+                                              read/write
+                                                    |
+                                        +-----------v-----------+
+                                        |      AWS RDS          |
+                                        |    PostgreSQL         |
+                                        +-----------------------+
 ```
 
 ## Project Phases
@@ -228,6 +244,49 @@ Added real-time email alerting when endpoints go down or recover. Spring Boot de
 
 ![Alert Recovery](docs/screenshots/phase-5/alert-up.jpg)
 *Recovery email — triggered when GitHub's endpoint was restored to the correct URL. Confirms the service is back UP.*
+
+---
+
+### Phase 6 — REST API
+
+Exposed the monitoring data through a Spring Boot REST API so the React dashboard (Phase 7) has a data source to consume. Built full CRUD for endpoints plus two metrics queries — raw historical results and a computed uptime percentage.
+
+**Key implementation details:**
+- **DTO layer** — dedicated Data Transfer Objects (`EndpointDTO`, `HealthCheckResultDTO`, `UptimeStatsDTO`, `CreateEndpointRequest`) sit between JPA entities and JSON responses. Prevents leaking internal persistence details to clients, avoids infinite Jackson serialization loops from JPA relationships, and lets the API shape evolve independently from the database schema.
+- **Mapper pattern** — dedicated `@Component` classes (`EndpointMapper`, `HealthCheckResultMapper`) handle entity-to-DTO translation. Keeps the mapping logic out of both the controllers and the entities themselves.
+- **Inbound vs outbound DTOs** — `CreateEndpointRequest` intentionally omits server-owned fields (`id`, `createdAt`, `currentStatus`). Allow-list pattern prevents clients from setting fields they shouldn't control.
+- **REST sub-resource routing** — results and uptime are nested under their parent endpoint (`/api/endpoints/{id}/results`, `/api/endpoints/{id}/uptime`) because the data is owned by the endpoint. Multiple controllers share the `/api/endpoints` base path cleanly.
+- **`ResponseEntity`** — gives precise HTTP status control: `200 OK` for successful reads, `201 Created` for POST, `204 No Content` for DELETE, `404 Not Found` for missing resources.
+- **Global CORS config** — `CorsConfig` implements `WebMvcConfigurer` to allow cross-origin requests from `http://localhost:3000` (React dev server) to any `/api/**` endpoint. Centralized over scattered `@CrossOrigin` annotations.
+- **Cascade delete handling** — deleting an endpoint first removes its results via `deleteByEndpointId` (marked `@Modifying` + `@Transactional`) to avoid foreign key violations, then removes the endpoint itself.
+- **Computed metrics endpoint** — `GET /api/endpoints/{id}/uptime` reads the last N check results, counts how many were `UP`, and returns an `UptimeStatsDTO` with percentage, total, and up counts. Returns `null` percentage when there's no data rather than a misleading `0%`.
+
+> **Challenge:** Returning JPA entities directly from controllers would leak internal structure, trigger lazy-loading explosions during JSON serialization, and couple the API contract tightly to the database schema.
+
+> **Solution:** Introduced a DTO layer with dedicated mapper classes. The API now speaks its own language — clean, flat JSON shapes that don't care how the data is stored. Changing the entity structure no longer breaks the API contract.
+
+> **Challenge:** Deleting an endpoint failed with a foreign key constraint violation because `health_check_results` rows still referenced it.
+
+> **Solution:** Added `deleteByEndpointId` to `HealthCheckResultRepository` with `@Modifying` and `@Transactional`. The delete endpoint now removes children first, then the parent. Chose this over JPA cascade because the `Endpoint` entity has no reverse relationship to results (a deliberate design choice to keep the entity clean).
+
+> **Challenge:** Integer division would silently return `0` for the uptime percentage — `upChecks / totalChecks` evaluated as `long / long` gives `0` for any ratio below 1.
+
+> **Solution:** Multiplied by `100.0` (a `double` literal) *before* dividing — `(upChecks * 100.0) / totalChecks`. Java promotes the whole expression to `double`, and the math works correctly. Classic gotcha worth remembering.
+
+![Spring Boot Started](docs/screenshots/phase-6/spring-start.jpg)
+*Spring Boot backend booting cleanly with the new REST API code — 17 source files compiled, Tomcat listening on port 8080.*
+
+![Get Endpoints](docs/screenshots/phase-6/api-endpoints.jpg)
+*GET `/api/endpoints` returning the full list of monitored services — each with live status and last-checked timestamps computed at response time.*
+
+![Uptime Metrics](docs/screenshots/phase-6/api-endpoints-1-uptime.jpg)
+*GET `/api/endpoints/1/uptime` returning a computed uptime percentage over the last N checks — the first endpoint that actually aggregates data rather than returning raw rows.*
+
+![404 Not Found](docs/screenshots/phase-6/api-endpoints-99999.jpg)
+*GET on a non-existent endpoint returns `404 Not Found` with CORS `Vary` headers visible — proof the error path works and the CORS config is active.*
+
+![Delete Endpoint](docs/screenshots/phase-6/api-endpoints-2-delete.jpg)
+*DELETE `/api/endpoints/2` returns `204 No Content` after cascading through child results — the full CRUD loop is closed.*
 
 ---
 
