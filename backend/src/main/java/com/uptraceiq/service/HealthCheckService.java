@@ -41,6 +41,7 @@ public class HealthCheckService {
             this.alertService = alertService;
             this.httpClient = HttpClient.newBuilder()
                                 .connectTimeout(Duration.ofSeconds(10))
+                                .followRedirects(HttpClient.Redirect.NORMAL)
                                 .build();
     }
 
