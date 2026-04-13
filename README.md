@@ -21,7 +21,7 @@ Each phase is built incrementally so I can understand every layer before adding 
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 18, Tailwind CSS |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, React Query, Recharts |
 | **Backend** | Java 17, Spring Boot 3 |
 | **Database** | AWS RDS PostgreSQL |
 | **Storage** | AWS S3 (metrics archiving) |
@@ -38,7 +38,7 @@ Each phase is built incrementally so I can understand every layer before adding 
 | 4 | S3 Metrics Archiving | Archive older metrics to S3, keep RDS lean | ✅ |
 | 5 | Lambda Alerts & SNS | AWS Lambda formats alerts, SNS sends email notifications on incidents | ✅ |
 | 6 | REST API | Spring Boot endpoints for the React dashboard to consume | ✅ |
-| 7 | React Dashboard | Uptime charts, response time graphs, incident feed, live status badges | |
+| 7 | React Dashboard | Live status cards, response time sparklines, dark mode, auto-refresh | ✅ |
 | 8 | Alert Thresholds | Configurable response time and failure thresholds per endpoint | |
 
 ## Architecture
@@ -87,11 +87,11 @@ Each phase is built incrementally so I can understand every layer before adding 
 
   +-------------------+   HTTP/JSON     +-----------------------+
   |  React Dashboard  | <------------>  |   Spring REST API     |
-  |   (Phase 7)       |    CORS-enabled |  EndpointController   |
-  |  localhost:3000   |                 |  HealthCheckResult    |
-  +-------------------+                 |     Controller        |
-                                        | (DTOs + Mappers +     |
-                                        |  ResponseEntity)      |
+  |  (Vite + React    |    CORS-enabled |  EndpointController   |
+  |   Query, auto-    |   via proxy     |  HealthCheckResult    |
+  |   refresh 5s)     |                 |     Controller        |
+  |  localhost:3000   |                 | (DTOs + Mappers +     |
+  +-------------------+                 |  ResponseEntity)      |
                                         +-----------+-----------+
                                                     |
                                               read/write
@@ -100,6 +100,27 @@ Each phase is built incrementally so I can understand every layer before adding 
                                         |      AWS RDS          |
                                         |    PostgreSQL         |
                                         +-----------------------+
+```
+
+## Frontend Structure
+
+```
+frontend/
+  src/
+    |-- main.tsx                          <-- React entry point, QueryClientProvider
+    |-- App.tsx                           <-- App shell: header, layout grid
+    |-- index.css                         <-- Tailwind v4 import + dark mode config
+    |-- api/
+    |     '-- client.ts                   <-- Typed fetch wrapper for all API calls
+    |-- types/
+    |     '-- api.ts                      <-- TypeScript interfaces matching backend DTOs
+    '-- components/
+          |-- AddEndpointForm.tsx          <-- Create endpoint form (sticky sidebar)
+          |-- EndpointList.tsx             <-- Card list with badges, sparklines, skeletons
+          |-- EndpointDetail.tsx           <-- Expanded view: chart, stats, result table
+          |-- EndpointSparkline.tsx        <-- Mini response time chart (Recharts)
+          |-- StatusSummary.tsx            <-- UP/DOWN/DEGRADED count header
+          '-- ThemeToggle.tsx              <-- Dark mode toggle (localStorage + class strategy)
 ```
 
 ## Project Phases
@@ -290,11 +311,50 @@ Exposed the monitoring data through a Spring Boot REST API so the React dashboar
 
 ---
 
+### Phase 7 — React Dashboard
+
+Built a live monitoring dashboard in React that consumes the Phase 6 REST API. The frontend auto-refreshes every 5 seconds, shows real-time status badges, response time sparklines, and supports full dark mode.
+
+**Key implementation details:**
+- **React Query** manages all server state with a 5-second `refetchInterval`. Shared `queryKey` arrays (`['endpoints']`, `['results', id]`) let multiple components read the same cached data without duplicate HTTP requests.
+- **Typed API client** — a single `client.ts` module wraps `fetch` with generics (`apiRequest<T>`) so every component works with TypeScript interfaces, not raw JSON. Vite's dev proxy forwards `/api/*` to Spring Boot, avoiding CORS in development.
+- **Tailwind CSS v4** — utility-first styling with zero custom CSS files. Uses the Vite plugin (`@tailwindcss/vite`) instead of PostCSS. Dark mode uses a class-based strategy via `@custom-variant dark` so the toggle is instant.
+- **Recharts sparklines** — mini line charts on every collapsed card show response time trends at a glance. Color-coded by last status (green/red/amber). `isAnimationActive={false}` prevents re-animation on refetch.
+- **Dark mode** — class-based toggle (`<html class="dark">`) with `localStorage` persistence and OS preference detection as fallback. Every component has explicit `dark:` variants for backgrounds, text, borders, and badges.
+- **Loading skeletons** — `animate-pulse` placeholder cards match the real card shape, preventing layout shift during initial load.
+- **Responsive layout** — mobile-first single column, `lg:` breakpoint (1024px) switches to a 1/3 + 2/3 grid with a sticky sidebar form.
+
+> **Challenge:** Google showed as DOWN despite being reachable. The backend's `HttpClient` wasn't following redirects — Google returns a 301 from `google.com` to `www.google.com`, and 301 isn't a 2xx status.
+
+> **Solution:** Added `.followRedirects(HttpClient.Redirect.NORMAL)` to the `HttpClient` builder. Used `NORMAL` (not `ALWAYS`) to prevent HTTPS→HTTP downgrade attacks.
+
+> **Challenge:** React Query re-fetches every 5 seconds, which caused Recharts to replay its draw animation on every update — visually distracting on a dashboard.
+
+> **Solution:** Set `isAnimationActive={false}` on the `<Line>` component. Sparklines should update silently — animation is for first paint, not live data.
+
+![Dashboard Light](docs/screenshots/phase-7/dashboard-light.jpg)
+*Polished dashboard in light mode — two-column layout with sticky sidebar form, status summary header, sparklines on collapsed cards, and Google's card expanded showing uptime stats and response time chart.*
+
+![Dashboard Dark](docs/screenshots/phase-7/dashboard-dark.jpg)
+*Full dark mode with class-based toggle — slate backgrounds, explicit dark variants on every component, expanded Google card with chart and stats.*
+
+![Endpoint List](docs/screenshots/phase-7/dashboard-endpoint-list.jpg)
+*Early single-column layout before polish — endpoint cards with status badges and absolute timestamps. Google shows DOWN due to the redirect bug (fixed later with `HttpClient.Redirect.NORMAL`).*
+
+![New Endpoint](docs/screenshots/phase-7/dashboard-new-endpoint.jpg)
+*Four endpoints monitored including a newly added YouTube entry showing UNKNOWN status (no check results yet). Demonstrates the full card list with mixed UP/DOWN/UNKNOWN states.*
+
+![Add Endpoint Form](docs/screenshots/phase-7/add-endpoint-form.jpg)
+*Add Endpoint form with input fields for name, URL, and check interval. Single-column layout from early development, before the two-column responsive redesign.*
+
+---
+
 ## Running Locally
 
 ### Prerequisites
 - Java 17+
 - Maven 3.9+
+- Node.js 18+
 
 ### Backend (Local — H2)
 ```bash
@@ -308,3 +368,12 @@ cd backend
 export RDS_PASSWORD=your_rds_password
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=rds
 ```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). Vite proxies `/api/*` requests to the backend on port 8080.
