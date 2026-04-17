@@ -2,6 +2,7 @@ package com.uptraceiq.service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ public class AlertService {
     private final ObjectMapper objectMapper;
 
     private static final String FUNCTION_NAME = "uptraceiq-alert-handler";
+    private final ConcurrentHashMap<Long, Integer> consecutiveFailures = new ConcurrentHashMap<>();
 
     // Spring injects the Lambda client (from LambdaConfig) and the repository
     public AlertService(LambdaClient lambdaClient, HealthCheckResultRepository resultRepository) {
@@ -37,19 +39,20 @@ public class AlertService {
         Optional<HealthCheckResult> previousResult = resultRepository
                 .findTopByEndpointIdOrderByCheckedAtDesc(endpoint.getId());
 
-        if (previousResult.isEmpty()) {
-            return; // first check ever — nothing to compare against
-        }
+        if (previousResult.isEmpty()) return;
 
         HealthStatus previousStatus = previousResult.get().getStatus();
 
-        // only alert when status actually changes
-        boolean wentDown = previousStatus != HealthStatus.DOWN && newStatus == HealthStatus.DOWN;
-        boolean recovered = previousStatus == HealthStatus.DOWN && newStatus != HealthStatus.DOWN;
+        if (newStatus == HealthStatus.DOWN) {
+            int failures = consecutiveFailures.merge(endpoint.getId(), 1, Integer::sum);
 
-        if (!wentDown && !recovered) {
-            return; // no transition — don't spam alerts
+            if (failures != endpoint.getFailureThreshold()) return;
+        } else {
+            consecutiveFailures.put(endpoint.getId(), 0);
+            if (previousStatus != HealthStatus.DOWN) return;
         }
+        
+        
 
         try {
             String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, String>() {{

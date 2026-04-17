@@ -13,6 +13,8 @@ import type { HealthCheckResultDTO } from '../types/api'
 
 interface EndpointDetailProps {
   endpointId: number
+  responseTimeThresholdMs: number
+  failureThreshold: number
 }
 
 interface ChartPoint {
@@ -42,7 +44,7 @@ function toChartPoints(results: HealthCheckResultDTO[]): ChartPoint[] {
   }))
 }
 
-export function EndpointDetail({ endpointId }: EndpointDetailProps) {
+export function EndpointDetail({ endpointId, responseTimeThresholdMs, failureThreshold }: EndpointDetailProps) {
   const uptimeQuery = useQuery({
     queryKey: ['uptime', endpointId],
     queryFn: () => fetchUptime(endpointId, 100),
@@ -84,6 +86,12 @@ export function EndpointDetail({ endpointId }: EndpointDetailProps) {
           label="Successful"
           value={uptime?.upChecks?.toString() ?? '0'}
         />
+        <Stat 
+          label="Degraded above" value={`${responseTimeThresholdMs}ms`} 
+        />
+        <Stat 
+          label="Alert after" value={`${failureThreshold} failure${failureThreshold === 1 ? '' : 's'}`} 
+          />
       </div>
 
       {chartData.length === 0 ? (

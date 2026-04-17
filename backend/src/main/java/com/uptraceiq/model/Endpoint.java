@@ -39,6 +39,12 @@ public class Endpoint {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    @Column(name = "response_time_threshold_ms", nullable = false)
+    private Long responseTimeThresholdMs = 5000L;
+
+    @Column(name = "failure_threshold", nullable = false)
+    private Integer failureThreshold = 1;
+
     // Timestamps itself on creation
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -65,4 +71,10 @@ public class Endpoint {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Long getResponseTimeThresholdMs() { return responseTimeThresholdMs; }
+    public void setResponseTimeThresholdMs(Long responseTimeThresholdMs) { this.responseTimeThresholdMs = responseTimeThresholdMs; }
+
+    public Integer getFailureThreshold() { return failureThreshold; }
+    public void setFailureThreshold(Integer failureThreshold) { this.failureThreshold = failureThreshold; }
 }

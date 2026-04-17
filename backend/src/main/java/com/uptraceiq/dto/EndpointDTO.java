@@ -13,6 +13,8 @@ public class EndpointDTO {
     private LocalDateTime createdAt;
     private HealthStatus currentStatus;
     private LocalDateTime lastCheckedAt;
+    private Long responseTimeThresholdMs;
+    private Integer failureThreshold;
 
     public EndpointDTO() {
     }
@@ -72,4 +74,9 @@ public class EndpointDTO {
     public void setLastCheckedAt(LocalDateTime lastCheckedAt) {
         this.lastCheckedAt = lastCheckedAt;
     }
+    public Long getResponseTimeThresholdMs() { return responseTimeThresholdMs; }
+    public void setResponseTimeThresholdMs(Long responseTimeThresholdMs) { this.responseTimeThresholdMs = responseTimeThresholdMs; }
+
+    public Integer getFailureThreshold() { return failureThreshold; }
+    public void setFailureThreshold(Integer failureThreshold) { this.failureThreshold = failureThreshold; }
 }

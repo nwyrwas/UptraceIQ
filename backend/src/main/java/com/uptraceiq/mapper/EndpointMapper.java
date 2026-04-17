@@ -26,6 +26,8 @@ public class EndpointMapper {
         dto.setCheckIntervalSeconds(entity.getCheckIntervalSeconds());
         dto.setEnabled(entity.getEnabled());
         dto.setCreatedAt(entity.getCreatedAt());
+        dto.setResponseTimeThresholdMs(entity.getResponseTimeThresholdMs());
+        dto.setFailureThreshold(entity.getFailureThreshold());
 
         Optional<HealthCheckResult> latestResult = 
             resultRepository.findTopByEndpointIdOrderByCheckedAtDesc(entity.getId());
@@ -49,6 +51,13 @@ public class EndpointMapper {
 
         entity.setEnabled(
             Optional.ofNullable(request.getEnabled()).orElse(true)
+        );
+
+        entity.setResponseTimeThresholdMs(
+            Optional.ofNullable(request.getResponseTimeThresholdMs()).orElse(5000L)
+        );
+        entity.setFailureThreshold(
+            Optional.ofNullable(request.getFailureThreshold()).orElse(1)
         );
 
         entity.setCreatedAt(LocalDateTime.now());
