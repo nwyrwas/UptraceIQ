@@ -39,7 +39,7 @@ Each phase is built incrementally so I can understand every layer before adding 
 | 5 | Lambda Alerts & SNS | AWS Lambda formats alerts, SNS sends email notifications on incidents | ✅ |
 | 6 | REST API | Spring Boot endpoints for the React dashboard to consume | ✅ |
 | 7 | React Dashboard | Live status cards, response time sparklines, dark mode, auto-refresh | ✅ |
-| 8 | Alert Thresholds | Configurable response time and failure thresholds per endpoint | |
+| 8 | Alert Thresholds | Configurable response time and failure thresholds per endpoint | ✅ |
 
 ## Architecture
 
@@ -346,6 +346,30 @@ Built a live monitoring dashboard in React that consumes the Phase 6 REST API. T
 
 ![Add Endpoint Form](docs/screenshots/phase-7/add-endpoint-form.jpg)
 *Add Endpoint form with input fields for name, URL, and check interval. Single-column layout from early development, before the two-column responsive redesign.*
+
+---
+
+### Phase 8 — Alert Thresholds
+
+Added configurable alerting rules per endpoint — replacing hardcoded thresholds with per-endpoint settings for response time sensitivity and failure tolerance.
+
+**Key implementation details:**
+- **`responseTimeThresholdMs`** — new column on the `Endpoint` entity (default: 5000ms). `HealthCheckService.determineStatus()` now reads this value instead of a hardcoded constant — an endpoint with a 200ms threshold will show DEGRADED where one with a 10000ms threshold would show UP for the same response time.
+- **`failureThreshold`** — new column on the `Endpoint` entity (default: 1). `AlertService` tracks consecutive failure streaks per endpoint in a `ConcurrentHashMap<Long, Integer>`. A DOWN alert only fires when the streak count exactly reaches the threshold — preventing false alarms from a single timeout.
+- **`ConcurrentHashMap`** — chosen over `HashMap` because `HealthCheckService` runs all endpoint checks in parallel on separate threads. A plain `HashMap` has no thread-safety guarantees under concurrent writes. `merge()` provides an atomic increment-or-initialize in one call.
+- **DTO + mapper propagation** — both fields flow through `CreateEndpointRequest` → `EndpointMapper.toEntity()` → `Endpoint` → `EndpointMapper.toDTO()` → `EndpointDTO` → frontend. The mapper applies `Optional.ofNullable(...).orElse(default)` so omitting a field from the request body silently applies the default.
+- **Frontend form** — two new inputs in `AddEndpointForm` let users configure thresholds at creation time. `EndpointDetail` displays the active thresholds as stat cards alongside uptime and check counts.
+
+> **Challenge:** Consecutive failure tracking needs to survive across multiple check cycles but doesn't need to be persisted — it resets naturally if the app restarts (the first fresh check re-establishes the streak from scratch).
+
+> **Solution:** An in-memory `ConcurrentHashMap` keyed by `endpointId` lives on the `AlertService` bean (singleton scope by default in Spring). It persists for the lifetime of the app without touching the database.
+
+> **Challenge:** The failure alert should fire exactly once when the streak hits the threshold — not on every subsequent failure after that.
+
+> **Solution:** `merge()` returns the new value after increment. Checking `failures != endpoint.getFailureThreshold()` means we return early on every check except the one where the count first equals the threshold. At count 4 with threshold 3, `4 != 3` is true — silent. Only at the exact crossing point does the alert fire.
+
+![Phase 8 Dashboard](docs/screenshots/phase-8/dashboard-degraded-alert.jpg)
+*Expanded endpoint showing the two new threshold stat cards — "Degraded above 5000ms" and "Alert after 1 failure" — alongside the existing uptime and check count stats.*
 
 ---
 
