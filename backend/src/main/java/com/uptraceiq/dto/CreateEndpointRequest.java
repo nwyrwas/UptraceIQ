@@ -6,6 +6,8 @@ public class CreateEndpointRequest {
     private String url;
     private Integer checkIntervalSeconds;
     private Boolean enabled;
+    private Long responseTimeThresholdMs;
+    private Integer failureThreshold;
 
     public CreateEndpointRequest() {}
 
@@ -20,4 +22,10 @@ public class CreateEndpointRequest {
 
     public Boolean getEnabled() { return enabled; }
     public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+
+    public Long getResponseTimeThresholdMs() { return responseTimeThresholdMs; }
+    public void setResponseTimeThresholdMs(Long responseTimeThresholdMs) { this.responseTimeThresholdMs = responseTimeThresholdMs; }
+
+    public Integer getFailureThreshold() { return failureThreshold; }
+    public void setFailureThreshold(Integer failureThreshold) { this.failureThreshold = failureThreshold; }
 }

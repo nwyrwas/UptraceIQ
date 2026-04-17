@@ -9,6 +9,8 @@ export interface EndpointDTO {
     url: string
     checkIntervalSeconds: number
     enabled: boolean
+    responseTimeThresholdMs: number
+    failureThreshold: number
     createdAt: string
     currentStatus: HealthStatus | null
     lastCheckedAt: string | null
@@ -36,4 +38,6 @@ export interface CreateEndpointRequest {
     url: string
     checkIntervalSeconds?: number
     enabled?: boolean
+    responseTimeThresholdMs?: number
+    failureThreshold?: number
 }

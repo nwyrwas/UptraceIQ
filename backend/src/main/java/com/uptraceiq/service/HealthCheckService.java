@@ -87,7 +87,7 @@ public class HealthCheckService {
 
             result.setStatusCode(response.statusCode());
             result.setResponseTimeMs(responseTime);
-            result.setStatus(determineStatus(response.statusCode(), responseTime));
+            result.setStatus(determineStatus(response.statusCode(), responseTime, endpoint));
 
         } catch (Exception e) {
             // Connection failed, timed out, DNS error, etc. — mark as DOWN
@@ -103,14 +103,12 @@ public class HealthCheckService {
     }
 
     // Simple threshold logic — will be configurable per endpoint in Phase 8
-    private HealthStatus determineStatus(int statusCode, long responseTimeMs) {
+    private HealthStatus determineStatus(int statusCode, long responseTimeMs, Endpoint endpoint) {
         if (statusCode >= 200 && statusCode < 300) {
-            if (responseTimeMs > 5000) {
-                return HealthStatus.DEGRADED;
-            }
-            return HealthStatus.UP;
+            return responseTimeMs > endpoint.getResponseTimeThresholdMs() ? HealthStatus.DEGRADED : HealthStatus.UP;
         }
-        return HealthStatus.DOWN;
+    return HealthStatus.DOWN;
     }
-
 }
+
+

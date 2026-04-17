@@ -154,7 +154,11 @@ export function EndpointList() {
             <span>Last checked: {formatLastChecked(endpoint.lastCheckedAt)}</span>
           </div>
           {expandedId === endpoint.id && (
-            <EndpointDetail endpointId={endpoint.id} />
+            <EndpointDetail 
+              endpointId={endpoint.id} 
+              responseTimeThresholdMs={endpoint.responseTimeThresholdMs}
+              failureThreshold={endpoint.failureThreshold}
+            />
           )}
         </li>
       ))}

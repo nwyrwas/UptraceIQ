@@ -8,6 +8,8 @@ export function AddEndpointForm() {
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [checkIntervalSeconds, setCheckIntervalSeconds] = useState(30)
+  const [responseTimeThresholdMs, setResponseTimeThresholdMs] = useState(5000)
+  const [failureThreshold, setFailureThreshold] = useState(1)
 
   const queryClient = useQueryClient()
 
@@ -18,6 +20,8 @@ export function AddEndpointForm() {
       setName('')
       setUrl('')
       setCheckIntervalSeconds(30)
+      setResponseTimeThresholdMs(5000)
+      setFailureThreshold(1)
     },
   })
 
@@ -27,6 +31,8 @@ export function AddEndpointForm() {
       name: name.trim(),
       url: url.trim(),
       checkIntervalSeconds,
+      responseTimeThresholdMs,
+      failureThreshold,
       enabled: true,
     })
   }
@@ -75,6 +81,35 @@ export function AddEndpointForm() {
           max={3600}
           value={checkIntervalSeconds}
           onChange={(e) => setCheckIntervalSeconds(Number(e.target.value))}
+          required
+          className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-base text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-900 placeholder:text-gray-400 dark:placeholder:text-slate-500 transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="endpoint-response-threshold" className="text-sm font-medium text-gray-700 dark:text-slate-300">Degraded threshold (ms)</label>
+        <input
+          id="endpoint-response-threshold"
+          type="number"
+          min={100}
+          max={30000}
+          step={100}
+          value={responseTimeThresholdMs}
+          onChange={(e) => setResponseTimeThresholdMs(Number(e.target.value))}
+          required
+          className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-base text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-900 placeholder:text-gray-400 dark:placeholder:text-slate-500 transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="endpoint-failure-threshold" className="text-sm font-medium text-gray-700 dark:text-slate-300">Alert after N failures</label>
+        <input
+          id="endpoint-failure-threshold"
+          type="number"
+          min={1}
+          max={10}
+          value={failureThreshold}
+          onChange={(e) => setFailureThreshold(Number(e.target.value))}
           required
           className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-base text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-900 placeholder:text-gray-400 dark:placeholder:text-slate-500 transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
         />
